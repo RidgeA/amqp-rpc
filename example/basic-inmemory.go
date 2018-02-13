@@ -7,17 +7,19 @@ import (
 	"fmt"
 	"context"
 	"time"
+	"gitlab.com/RidgeA/amqp-rpc/transport"
 )
 
 func main() {
-	var url = "amqp://guest:guest@127.0.0.1:5672"
-	var name = "test"
+
+	name := "test"
+	t := transport.NewINMemory()
 
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
-	client := rpc.NewClient(name, rpc.SetUrl(url))
+	client := rpc.NewClient(name, rpc.SetTransport(t))
 
-	server := rpc.NewServer(name, rpc.SetUrl(url))
+	server := rpc.NewServer(name, rpc.SetTransport(t))
 
 	server.RegisterHandler("upper", func(payload []byte) ([]byte, error) {
 		return []byte(strings.ToUpper(string(payload))), nil
