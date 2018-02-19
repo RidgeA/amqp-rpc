@@ -15,6 +15,7 @@ var (
 	errorLog  = log.Printf
 )
 
+// Instance mode: Client, Server or both
 const (
 	ModeClient = 1 << iota
 	ModeServer
@@ -22,22 +23,29 @@ const (
 )
 
 type (
+	//Interface that represents rpc server
 	Server interface {
-		runner
-		handlerRegisterer
+		Start() error
+		Shutdown()
+		RegisterHandler(string, HandlerFunc, ...HandlerOptionsFunc)
 	}
 
+	//Interface that represents rpc client
 	Client interface {
-		runner
-		caller
+		Start() error
+		Shutdown()
+		Call(context.Context, string, []byte, bool) ([]byte, error)
 	}
 
+	//Interface that represents rpc client and server
 	Duplex interface {
-		runner
-		caller
-		handlerRegisterer
+		Start() error
+		Shutdown()
+		Call(context.Context, string, []byte, bool) ([]byte, error)
+		RegisterHandler(string, HandlerFunc, ...HandlerOptionsFunc)
 	}
 
+	//Interface for transport implementation
 	Transport interface {
 		Initialize() error
 		Shutdown()
@@ -46,26 +54,16 @@ type (
 		Reply(transport.Reply) error
 	}
 
+	//Logger function
 	LogFunc func(string, ...interface{})
 
 	HandlerFunc func([]byte) ([]byte, error)
 
+	//Function type to set options for RPC instance
 	OptionsFunc func(*rpc)
 
+	//Function type to set options for handler
 	HandlerOptionsFunc func(*handler)
-
-	runner interface {
-		Start() error
-		Shutdown()
-	}
-
-	handlerRegisterer interface {
-		RegisterHandler(string, HandlerFunc, ...HandlerOptionsFunc)
-	}
-
-	caller interface {
-		Call(context.Context, string, []byte, bool) ([]byte, error)
-	}
 
 	handler struct {
 		method     string
@@ -122,6 +120,9 @@ func (p request) Method() string {
 	return p.method
 }
 
+//Creates new server instance with 'name'. Optional params could be configured via option functions
+//The name has to be the same across whole infrastructure
+//Either url to ampq server or transport has to be configured via options
 func NewServer(name string, opts ...OptionsFunc) Server {
 	r := newRPC(name, opts...)
 	r.mode = ModeServer
@@ -129,6 +130,9 @@ func NewServer(name string, opts ...OptionsFunc) Server {
 	return r
 }
 
+//Creates new client instance with 'name'. Optional params could be configured via option functions
+//The name has to be the same across whole infrastructure
+//Either url to ampq server or transport has to be configured via options
 func NewClient(name string, opts ...OptionsFunc) Client {
 	r := newRPC(name, opts...)
 	r.mode = ModeClient
@@ -136,6 +140,10 @@ func NewClient(name string, opts ...OptionsFunc) Client {
 	return r
 }
 
+//Creates new RPC instance with 'name' that could act both as server and client.
+//The name has to be the same across whole infrastructure
+//Optional params could be configured via option functions
+//Either url to ampq server or transport has to be configured via options
 func NewDuplex(name string, opts ...OptionsFunc) Duplex {
 	r := newRPC(name, opts...)
 	r.mode = ModeDuplex
@@ -144,57 +152,86 @@ func NewDuplex(name string, opts ...OptionsFunc) Duplex {
 	return r
 }
 
+//Sets function to log errors
 func SetError(f LogFunc) OptionsFunc {
 	return func(r *rpc) {
 		r.errorf = f
 	}
 }
 
+//Sets function to log informational messages
 func SetInfo(f LogFunc) OptionsFunc {
 	return func(r *rpc) {
 		r.info = f
 	}
 }
 
+//Sets function to log debug messages
 func SetDebug(f LogFunc) OptionsFunc {
 	return func(r *rpc) {
 		r.debug = f
 	}
 }
 
+//Sets URL to amqp server
 func SetUrl(url string) OptionsFunc {
 	return func(r *rpc) {
 		r.url = url
 	}
 }
 
+//Sets already configured transport instance
+//Transport implementation has to be initialized and destroyed manually
 func SetTransport(transport Transport) OptionsFunc {
 	return func(r *rpc) {
 		r.t = transport
 	}
 }
 
+// Sets optional options for method handler to limit throughput
+// Limitation passes to underlying transport and has to be implemented by transport
 func SetHandlerThroughput(throughput uint) HandlerOptionsFunc {
 	return func(h *handler) {
 		h.throughput = throughput
 	}
 }
 
-func (rpc *rpc) WithInfo(f LogFunc) *rpc {
-	rpc.info = f
-	return rpc
+//Method to start RPC instance
+//Depends on selected mode it initialize server, client or both.
+//If transport instance wasn't passed manually it also initializes the default transport (amqp)
+func (rpc *rpc) Start() error {
+
+	if !rpc.extTransport {
+		if err := rpc.t.Initialize(); err != nil {
+			return err
+		}
+	}
+
+	if rpc.mode&ModeClient == ModeClient {
+		if err := rpc.startClient(); err != nil {
+			return err
+		}
+	}
+
+	if rpc.mode&ModeServer == ModeServer {
+		if err := rpc.startServer(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (rpc *rpc) WithDebug(f LogFunc) *rpc {
-	rpc.debug = f
-	return rpc
-}
-
+//Method for shutdown instance properly and close underlying transport instance
+//The method doesn't close transport implementation if it has been passed manually
 func (rpc *rpc) Shutdown() {
 	rpc.info("Shutting down rpc")
-	rpc.t.Shutdown()
+	if !rpc.extTransport {
+		rpc.t.Shutdown()
+	}
 }
 
+//Method to call remote function
 func (rpc *rpc) Call(ctx context.Context, method string, payload []byte, wait bool) ([]byte, error) {
 	rpc.debug("Calling method %s", method)
 	var response <-chan transport.Call
@@ -230,27 +267,7 @@ func (rpc *rpc) Call(ctx context.Context, method string, payload []byte, wait bo
 	return responseData, err
 }
 
-func (rpc *rpc) Start() error {
-
-	if err := rpc.t.Initialize(); err != nil {
-		return err
-	}
-
-	if rpc.mode&ModeClient == ModeClient {
-		if err := rpc.startClient(); err != nil {
-			return err
-		}
-	}
-
-	if rpc.mode&ModeServer == ModeServer {
-		if err := rpc.startServer(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
+//Method to register handler for the method
 func (rpc *rpc) RegisterHandler(method string, f HandlerFunc, options ...HandlerOptionsFunc) {
 	rpc.debug("Register handler for method %rpc", method)
 	h := &handler{

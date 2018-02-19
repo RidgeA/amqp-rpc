@@ -14,6 +14,7 @@ func main() {
 
 	name := "test"
 	t := transport.NewINMemory()
+	t.Initialize()
 
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
