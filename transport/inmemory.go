@@ -6,7 +6,7 @@ import (
 
 type (
 	INMemory struct {
-		subscriptions map[string]SubscribeFunc
+		subscriptions map[string]*subscription
 		queue         chan *pack
 		ctx           context.Context
 		cancel        context.CancelFunc
@@ -18,6 +18,13 @@ type (
 		id      string
 		payload []byte
 		method  string
+	}
+
+	subscription struct {
+		key        string
+		sFunc      SubscribeFunc
+		throughput uint
+		limit      chan struct{}
 	}
 )
 
@@ -44,7 +51,7 @@ func NewINMemory() *INMemory {
 
 func (t *INMemory) Initialize() error {
 	if !t.initialized {
-		t.subscriptions = make(map[string]SubscribeFunc)
+		t.subscriptions = make(map[string]*subscription)
 		t.queue = make(chan *pack, 1024)
 		t.ctx, t.cancel = context.WithCancel(context.Background())
 		t.initialized = true
@@ -68,8 +75,19 @@ func (t *INMemory) Send(parcel Call) error {
 	return nil
 }
 
-func (t *INMemory) Subscribe(key string, f SubscribeFunc, callback bool) error {
-	t.subscriptions[key] = f
+func (t *INMemory) Subscribe(key string, f SubscribeFunc, callback bool, throughput uint) error {
+
+	var limitCh chan struct{}
+	if throughput != 0 {
+		limitCh = make(chan struct{}, throughput)
+	}
+	sub := &subscription{
+		key:        key,
+		throughput: throughput,
+		sFunc:      f,
+		limit:      limitCh,
+	}
+	t.subscriptions[key] = sub
 	return nil
 }
 
@@ -90,7 +108,16 @@ func (t *INMemory) dispatch() {
 			key := p.method
 			handler, exists := t.subscriptions[key]
 			if exists {
-				handler(p)
+
+				if handler.limit != nil {
+					handler.limit <- struct{}{}
+				}
+
+				handler.sFunc(p)
+
+				if handler.limit != nil {
+					<-handler.limit
+				}
 			}
 		case <-t.ctx.Done():
 			break

@@ -42,7 +42,7 @@ type (
 		Initialize() error
 		Shutdown()
 		Send(call transport.Call) error
-		Subscribe(string, transport.SubscribeFunc, bool) error
+		Subscribe(key string, subscription transport.SubscribeFunc, callback bool, throughput uint) error
 		Reply(transport.Reply) error
 	}
 
@@ -52,13 +52,15 @@ type (
 
 	OptionsFunc func(*rpc)
 
+	HandlerOptionsFunc func(*handler)
+
 	runner interface {
 		Start() error
 		Shutdown()
 	}
 
 	handlerRegisterer interface {
-		RegisterHandler(string, HandlerFunc)
+		RegisterHandler(string, HandlerFunc, ...HandlerOptionsFunc)
 	}
 
 	caller interface {
@@ -66,8 +68,9 @@ type (
 	}
 
 	handler struct {
-		method  string
-		handler HandlerFunc
+		method     string
+		handler    HandlerFunc
+		throughput uint
 	}
 
 	request struct {
@@ -171,6 +174,12 @@ func SetTransport(transport Transport) OptionsFunc {
 	}
 }
 
+func SetHandlerThroughput(throughput uint) HandlerOptionsFunc {
+	return func(h *handler) {
+		h.throughput = throughput
+	}
+}
+
 func (rpc *rpc) WithInfo(f LogFunc) *rpc {
 	rpc.info = f
 	return rpc
@@ -242,12 +251,16 @@ func (rpc *rpc) Start() error {
 	return nil
 }
 
-func (rpc *rpc) RegisterHandler(method string, f HandlerFunc) {
+func (rpc *rpc) RegisterHandler(method string, f HandlerFunc, options ...HandlerOptionsFunc) {
 	rpc.debug("Register handler for method %rpc", method)
-	rpc.handlers[method] = &handler{
+	h := &handler{
 		method:  method,
 		handler: f,
 	}
+	for _, setter := range options {
+		setter(h)
+	}
+	rpc.handlers[method] = h
 }
 
 func newRPC(name string, opts ...OptionsFunc) (r *rpc) {
@@ -294,7 +307,7 @@ func (rpc *rpc) handle(f HandlerFunc) transport.SubscribeFunc {
 
 func (rpc *rpc) startClient() error {
 	rpc.info("Starting client")
-	if err := rpc.t.Subscribe(rpc.instanceId, rpc.dispatchResponse, true); err != nil {
+	if err := rpc.t.Subscribe(rpc.instanceId, rpc.dispatchResponse, true, 0); err != nil {
 		return err
 	}
 	return nil
@@ -307,7 +320,7 @@ func (rpc *rpc) startServer() error {
 	var err error
 
 	for _, handler := range rpc.handlers {
-		err = rpc.t.Subscribe(handler.method, rpc.handle(handler.handler), false)
+		err = rpc.t.Subscribe(handler.method, rpc.handle(handler.handler), false, handler.throughput)
 		if err != nil {
 			return err
 		}

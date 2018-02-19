@@ -116,24 +116,28 @@ func (t *AMQPTransport) Reply(reply Reply) error {
 	return t.out.Publish(t.exchangeName, reply.Request().Source(), true, false, publishing)
 }
 
-func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, callback bool) error {
+func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, callback bool, throughput uint) error {
 	<-t.initialized
 	ch, err := t.getSubscribeChannel(method)
 	if err != nil {
 		return err
 	}
 
-	queue := method
+	queueName := method
 	if !callback {
-		queue = requestQueue(t.name, method)
+		queueName = requestQueue(t.name, method)
 	}
 
-	err = t.ensureQueue(ch, queue, callback)
+	err = t.ensureQueue(ch, queueName, callback)
 	if err != nil {
 		return err
 	}
 
-	delivery, err := ch.Consume(queue, t.tag, false, false, false, false, nil)
+	if throughput > 0 {
+		ch.Qos(int(throughput), 0, false)
+	}
+
+	delivery, err := ch.Consume(queueName, t.tag, false, false, false, false, nil)
 
 	go t.handle(delivery, subscription)
 
