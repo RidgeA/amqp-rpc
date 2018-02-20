@@ -75,7 +75,7 @@ func (t *INMemory) Send(parcel Call) error {
 	return nil
 }
 
-func (t *INMemory) Subscribe(key string, f SubscribeFunc, callback bool, throughput uint) error {
+func (t *INMemory) Subscribe(key string, f SubscribeFunc, throughput uint) error {
 
 	var limitCh chan struct{}
 	if throughput != 0 {

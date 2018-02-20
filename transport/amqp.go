@@ -98,7 +98,7 @@ func (t *AMQPTransport) Shutdown() {
 func (t *AMQPTransport) Send(p Call) error {
 	rk := requestQueue(t.name, p.Method())
 	publishing := amqp.Publishing{
-		ReplyTo:       t.tag,
+		ReplyTo:       requestQueue(t.name, t.tag),
 		DeliveryMode:  amqp.Persistent,
 		CorrelationId: p.ID(),
 		Body:          p.Payload(),
@@ -116,19 +116,16 @@ func (t *AMQPTransport) Reply(reply Reply) error {
 	return t.out.Publish(t.exchangeName, reply.Request().Source(), true, false, publishing)
 }
 
-func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, callback bool, throughput uint) error {
+func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, throughput uint) error {
 	<-t.initialized
 	ch, err := t.getSubscribeChannel(method)
 	if err != nil {
 		return err
 	}
 
-	queueName := method
-	if !callback {
-		queueName = requestQueue(t.name, method)
-	}
+	queueName := requestQueue(t.name, method)
 
-	err = t.ensureQueue(ch, queueName, callback)
+	err = t.ensureQueue(ch, queueName)
 	if err != nil {
 		return err
 	}
@@ -164,7 +161,7 @@ func (t *AMQPTransport) getSubscribeChannel(key string) (*amqp.Channel, error) {
 	return t.inChannels[key], err
 }
 
-func (t *AMQPTransport) ensureQueue(channel *amqp.Channel, name string, exclusive bool) error {
+func (t *AMQPTransport) ensureQueue(channel *amqp.Channel, name string) error {
 	_, err := channel.QueueDeclare(name, false, true, false, false, nil)
 	if err != nil {
 		return nil

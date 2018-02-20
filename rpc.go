@@ -50,7 +50,7 @@ type (
 		Initialize() error
 		Shutdown()
 		Send(call transport.Call) error
-		Subscribe(key string, subscription transport.SubscribeFunc, callback bool, throughput uint) error
+		Subscribe(key string, subscription transport.SubscribeFunc, throughput uint) error
 		Reply(transport.Reply) error
 	}
 
@@ -184,6 +184,7 @@ func SetUrl(url string) OptionsFunc {
 //Transport implementation has to be initialized and destroyed manually
 func SetTransport(transport Transport) OptionsFunc {
 	return func(r *rpc) {
+		r.extTransport = true
 		r.t = transport
 	}
 }
@@ -324,7 +325,7 @@ func (rpc *rpc) handle(f HandlerFunc) transport.SubscribeFunc {
 
 func (rpc *rpc) startClient() error {
 	rpc.info("Starting client")
-	if err := rpc.t.Subscribe(rpc.instanceId, rpc.dispatchResponse, true, 0); err != nil {
+	if err := rpc.t.Subscribe(rpc.instanceId, rpc.dispatchResponse, 0); err != nil {
 		return err
 	}
 	return nil
@@ -337,7 +338,7 @@ func (rpc *rpc) startServer() error {
 	var err error
 
 	for _, handler := range rpc.handlers {
-		err = rpc.t.Subscribe(handler.method, rpc.handle(handler.handler), false, handler.throughput)
+		err = rpc.t.Subscribe(handler.method, rpc.handle(handler.handler), handler.throughput)
 		if err != nil {
 			return err
 		}
