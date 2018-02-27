@@ -113,11 +113,13 @@ func (t *INMemory) dispatch() {
 					handler.limit <- struct{}{}
 				}
 
-				handler.sFunc(p)
+				go func(h *subscription) {
+					handler.sFunc(p)
+					if handler.limit != nil {
+						<-handler.limit
+					}
+				}(handler)
 
-				if handler.limit != nil {
-					<-handler.limit
-				}
 			}
 		case <-t.ctx.Done():
 			break

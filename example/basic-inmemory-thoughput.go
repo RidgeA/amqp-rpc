@@ -3,17 +3,18 @@ package main
 import (
 	"gitlab.com/RidgeA/amqp-rpc"
 	"log"
-	"strings"
 	"fmt"
 	"context"
 	"time"
 	"gitlab.com/RidgeA/amqp-rpc/transport"
+	"strconv"
 )
 
 func main() {
 
 	name := "test"
 	t := transport.NewINMemory()
+	t.Initialize()
 
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
@@ -21,19 +22,11 @@ func main() {
 
 	server := rpc.NewServer(name, rpc.SetTransport(t))
 
-	server.RegisterHandler("upper", func(payload []byte) ([]byte, error) {
-		return []byte(strings.ToUpper(string(payload))), nil
-	})
-
-	server.RegisterHandler("lower", func(payload []byte) ([]byte, error) {
-		return []byte(strings.ToLower(string(payload))), nil
-	})
-
 	server.RegisterHandler("write", func(payload []byte) ([]byte, error) {
-		time.Sleep(time.Second)
+		time.Sleep(500 * time.Millisecond)
 		fmt.Printf("%s: server log: %s\n", time.Now().Format("15:04:05.999999"), string(payload))
 		return nil, nil
-	}, rpc.SetHandlerThroughput(1))
+	}, rpc.SetHandlerThroughput(2))
 
 	if err := client.Start(); err != nil {
 		log.Fatal(err.Error())
@@ -45,20 +38,12 @@ func main() {
 	}
 	defer server.Shutdown()
 
-	response, err := client.Call(context.Background(), "upper", []byte("hello!"), true)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	_, err = client.Call(context.Background(), "write", response, false)
-	if err != nil {
-		log.Fatal(err.Error())
+	for i := 0; i < 10; i ++ {
+		_, err := client.Call(context.Background(), "write", []byte(strconv.Itoa(i)+":hello!"), false)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 	}
 
-	response, err = client.Call(context.Background(), "lower", []byte("BYE!"), true)
-	_, err = client.Call(context.Background(), "write", response, false)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	time.Sleep(2100 * time.Millisecond)
+	time.Sleep(3000 * time.Millisecond)
 }

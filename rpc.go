@@ -1,3 +1,4 @@
+// Simple RPC library with amqp as default underlying transport
 package rpc
 
 import (
