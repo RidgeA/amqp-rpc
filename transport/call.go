@@ -13,5 +13,5 @@ type (
 		Payload() []byte
 	}
 
-	SubscribeFunc func(Call) (error)
+	SubscribeFunc func(Call) error
 )

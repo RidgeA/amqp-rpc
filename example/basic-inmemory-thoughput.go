@@ -1,13 +1,14 @@
 package main
 
 import (
-	"gitlab.com/RidgeA/amqp-rpc"
-	"log"
-	"fmt"
 	"context"
-	"time"
-	"gitlab.com/RidgeA/amqp-rpc/transport"
+	"fmt"
+	"log"
 	"strconv"
+	"time"
+
+	"github.com/RidgeA/amqp-rpc"
+	"github.com/RidgeA/amqp-rpc/transport"
 )
 
 func main() {
@@ -38,7 +39,7 @@ func main() {
 	}
 	defer server.Shutdown()
 
-	for i := 0; i < 10; i ++ {
+	for i := 0; i < 10; i++ {
 		_, err := client.Call(context.Background(), "write", []byte(strconv.Itoa(i)+":hello!"), false)
 		if err != nil {
 			log.Fatal(err.Error())

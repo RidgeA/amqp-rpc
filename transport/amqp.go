@@ -1,8 +1,9 @@
 package transport
 
 import (
-	"github.com/streadway/amqp"
 	"strings"
+
+	"github.com/streadway/amqp"
 )
 
 type (

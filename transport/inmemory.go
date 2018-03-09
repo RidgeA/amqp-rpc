@@ -1,3 +1,6 @@
+// In-memory implementation of transport just for testing purposes.
+// Not meant to use in production
+
 package transport
 
 import (

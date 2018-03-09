@@ -1,12 +1,13 @@
 package main
 
 import (
-	"gitlab.com/RidgeA/amqp-rpc"
+	"context"
+	"fmt"
 	"log"
 	"strings"
-	"fmt"
-	"context"
 	"time"
+
+	"github.com/RidgeA/amqp-rpc"
 )
 
 func main() {

@@ -2,13 +2,14 @@
 package rpc
 
 import (
+	"context"
+	"errors"
 	"log"
 	"os"
 	"strconv"
-	"context"
-	"gitlab.com/RidgeA/amqp-rpc/transport"
+
 	"github.com/satori/go.uuid"
-	"errors"
+	"github.com/RidgeA/amqp-rpc/transport"
 )
 
 var (
