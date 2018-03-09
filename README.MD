@@ -1,6 +1,6 @@
 ## amqp-rpc
 
-[![GoDoc](https://godoc.org/githab.com/RidgeA/amqp-rpc?status.svg)](https://godoc.org/githab.com/RidgeA/amqp-rpc)
+[![GoDoc](https://godoc.org/github.com/RidgeA/amqp-rpc?status.svg)](https://godoc.org/githab.com/RidgeA/amqp-rpc)
 
 RPC (remote procedure call) library with amqp as underling transport.
 
