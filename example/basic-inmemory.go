@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	rpc "github.com/RidgeA/amqp-rpc"
+	"github.com/RidgeA/amqp-rpc/transport"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/RidgeA/amqp-rpc"
-	"github.com/RidgeA/amqp-rpc/transport"
 )
 
 func main() {

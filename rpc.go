@@ -4,12 +4,11 @@ package rpc
 import (
 	"context"
 	"errors"
+	"github.com/RidgeA/amqp-rpc/transport"
+	"github.com/google/uuid"
 	"log"
 	"os"
 	"strconv"
-
-	"github.com/satori/go.uuid"
-	"github.com/RidgeA/amqp-rpc/transport"
 )
 
 var (
@@ -239,7 +238,7 @@ func (rpc *rpc) Call(ctx context.Context, method string, payload []byte, wait bo
 	rpc.debug("Calling method %s", method)
 	var response <-chan transport.Call
 	p := request{
-		id:      uuid.NewV4().String(),
+		id:      uuid.New().String(),
 		payload: payload,
 		method:  method,
 		source:  rpc.instanceId,
