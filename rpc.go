@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"github.com/RidgeA/amqp-rpc/transport"
+	"github.com/RidgeA/amqp-rpc/transport/amqp"
 	"github.com/google/uuid"
 	"log"
 	"os"
@@ -295,7 +296,7 @@ func newRPC(name string, opts ...OptionsFunc) (r *rpc) {
 	}
 
 	if r.t == nil {
-		r.t = transport.NewAMQPTransport(
+		r.t = amqp.New(
 			r.name,
 			r.instanceId,
 			r.url,

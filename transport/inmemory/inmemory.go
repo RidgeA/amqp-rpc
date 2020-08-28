@@ -1,14 +1,15 @@
 // In-memory implementation of transport just for testing purposes.
 // Not meant to use in production
 
-package transport
+package inmemory
 
 import (
 	"context"
+	"github.com/RidgeA/amqp-rpc/transport"
 )
 
 type (
-	INMemory struct {
+	InMemory struct {
 		subscriptions map[string]*subscription
 		queue         chan *pack
 		ctx           context.Context
@@ -25,7 +26,7 @@ type (
 
 	subscription struct {
 		key        string
-		sFunc      SubscribeFunc
+		sFunc      transport.SubscribeFunc
 		throughput uint
 		limit      chan struct{}
 	}
@@ -47,12 +48,12 @@ func (p pack) Source() string {
 	return p.replyTo
 }
 
-func NewINMemory() *INMemory {
-	t := &INMemory{}
+func New() *InMemory {
+	t := &InMemory{}
 	return t
 }
 
-func (t *INMemory) Initialize() error {
+func (t *InMemory) Initialize() error {
 	if !t.initialized {
 		t.subscriptions = make(map[string]*subscription)
 		t.queue = make(chan *pack, 1024)
@@ -63,11 +64,11 @@ func (t *INMemory) Initialize() error {
 	return nil
 }
 
-func (t *INMemory) Shutdown() {
+func (t *InMemory) Shutdown() {
 	t.cancel()
 }
 
-func (t *INMemory) Send(parcel Call) error {
+func (t *InMemory) Send(parcel transport.Call) error {
 	p := &pack{
 		id:      parcel.ID(),
 		replyTo: parcel.Source(),
@@ -78,7 +79,7 @@ func (t *INMemory) Send(parcel Call) error {
 	return nil
 }
 
-func (t *INMemory) Subscribe(key string, f SubscribeFunc, throughput uint) error {
+func (t *InMemory) Subscribe(key string, f transport.SubscribeFunc, throughput uint) error {
 
 	var limitCh chan struct{}
 	if throughput != 0 {
@@ -94,7 +95,7 @@ func (t *INMemory) Subscribe(key string, f SubscribeFunc, throughput uint) error
 	return nil
 }
 
-func (t *INMemory) Reply(reply Reply) error {
+func (t *InMemory) Reply(reply transport.Reply) error {
 	p := &pack{
 		method:  reply.Request().Source(),
 		payload: reply.Payload(),
@@ -104,7 +105,7 @@ func (t *INMemory) Reply(reply Reply) error {
 	return nil
 }
 
-func (t *INMemory) dispatch() {
+func (t *InMemory) dispatch() {
 	for {
 		select {
 		case p := <-t.queue:

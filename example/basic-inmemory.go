@@ -4,18 +4,17 @@ import (
 	"context"
 	"fmt"
 	rpc "github.com/RidgeA/amqp-rpc"
-	"github.com/RidgeA/amqp-rpc/transport"
+	"github.com/RidgeA/amqp-rpc/transport/inmemory"
 	"log"
 	"strings"
 	"time"
-
 )
 
 func main() {
 
 	name := "test"
-	t := transport.NewINMemory()
-	t.Initialize()
+	t := inmemory.New()
+	_ = t.Initialize()
 
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 

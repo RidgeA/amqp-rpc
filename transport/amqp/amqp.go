@@ -1,6 +1,7 @@
-package transport
+package amqp
 
 import (
+	"github.com/RidgeA/amqp-rpc/transport"
 	"strings"
 
 	"github.com/streadway/amqp"
@@ -41,7 +42,7 @@ func (p AMQPParcel) Payload() []byte {
 	return p.Body
 }
 
-func NewAMQPTransport(name, id, url string, options ...OptionsFunc) *AMQPTransport {
+func New(name, id, url string, options ...OptionsFunc) *AMQPTransport {
 	t := &AMQPTransport{
 		url:          url,
 		name:         name,
@@ -96,7 +97,7 @@ func (t *AMQPTransport) Shutdown() {
 	}
 }
 
-func (t *AMQPTransport) Send(p Call) error {
+func (t *AMQPTransport) Send(p transport.Call) error {
 	rk := requestQueue(t.name, p.Method())
 	publishing := amqp.Publishing{
 		ReplyTo:       requestQueue(t.name, t.tag),
@@ -107,7 +108,7 @@ func (t *AMQPTransport) Send(p Call) error {
 	return t.out.Publish(t.exchangeName, rk, true, false, publishing)
 }
 
-func (t *AMQPTransport) Reply(reply Reply) error {
+func (t *AMQPTransport) Reply(reply transport.Reply) error {
 	publishing := amqp.Publishing{
 		ReplyTo:       t.tag,
 		DeliveryMode:  amqp.Persistent,
@@ -117,7 +118,7 @@ func (t *AMQPTransport) Reply(reply Reply) error {
 	return t.out.Publish(t.exchangeName, reply.Request().Source(), true, false, publishing)
 }
 
-func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, throughput uint) error {
+func (t *AMQPTransport) Subscribe(method string, subscription transport.SubscribeFunc, throughput uint) error {
 	<-t.initialized
 	ch, err := t.getSubscribeChannel(method)
 	if err != nil {
@@ -132,7 +133,7 @@ func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, thr
 	}
 
 	if throughput > 0 {
-		ch.Qos(int(throughput), 0, false)
+		_ = ch.Qos(int(throughput), 0, false)
 	}
 
 	delivery, err := ch.Consume(queueName, t.tag, false, false, false, false, nil)
@@ -142,13 +143,13 @@ func (t *AMQPTransport) Subscribe(method string, subscription SubscribeFunc, thr
 	return nil
 }
 
-func (t *AMQPTransport) handle(in <-chan amqp.Delivery, f SubscribeFunc) {
+func (t *AMQPTransport) handle(in <-chan amqp.Delivery, f transport.SubscribeFunc) {
 	for msg := range in {
 		err := f(AMQPParcel(msg))
 		if err != nil {
-			msg.Nack(false, false)
+			_ = msg.Nack(false, false)
 		} else {
-			msg.Ack(false)
+			_ = msg.Ack(false)
 		}
 	}
 }
