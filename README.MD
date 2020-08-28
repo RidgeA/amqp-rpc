@@ -1,6 +1,6 @@
 ## amqp-rpc
 
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/RidgeA/amqp-rpc)](https://pkg.go.dev/github.com/RidgeA/amqp-rpc@v0.0.1)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/RidgeA/amqp-rpc)](https://pkg.go.dev/github.com/RidgeA/amqp-rpc@v0.0.2)
 
 RPC (remote procedure call) library with amqp as underling transport.
 
