@@ -59,6 +59,7 @@ type (
 	//Logger function
 	LogFunc func(string, ...interface{})
 
+	//A function to handle incoming message
 	HandlerFunc func([]byte) ([]byte, error)
 
 	//Function type to set options for RPC instance
@@ -122,9 +123,10 @@ func (p request) Method() string {
 	return p.method
 }
 
-//Creates new server instance with 'name'. Optional params could be configured via option functions
-//The name has to be the same across whole infrastructure
-//Either url to ampq server or transport has to be configured via options
+//Creates new server instance with 'name'.
+//Optional params could be configured via option functions.
+//The name has to be the same across the whole infrastructure.
+//Either url to ampq server or transport has to be configured via options.
 func NewServer(name string, opts ...OptionsFunc) Server {
 	r := newRPC(name, opts...)
 	r.mode = ModeServer
@@ -132,9 +134,10 @@ func NewServer(name string, opts ...OptionsFunc) Server {
 	return r
 }
 
-//Creates new client instance with 'name'. Optional params could be configured via option functions
-//The name has to be the same across whole infrastructure
-//Either url to ampq server or transport has to be configured via options
+//Creates new client instance with 'name'.
+//Optional params could be configured via option functions.
+//The name has to be the same across the whole infrastructure.
+//Either url to ampq server or transport has to be configured via options.
 func NewClient(name string, opts ...OptionsFunc) Client {
 	r := newRPC(name, opts...)
 	r.mode = ModeClient
@@ -143,9 +146,9 @@ func NewClient(name string, opts ...OptionsFunc) Client {
 }
 
 //Creates new RPC instance with 'name' that could act both as server and client.
-//The name has to be the same across whole infrastructure
-//Optional params could be configured via option functions
-//Either url to ampq server or transport has to be configured via options
+//Optional params could be configured via option functions.
+//The name has to be the same across the whole infrastructure.
+//Either url to ampq server or transport has to be configured via options.
 func NewDuplex(name string, opts ...OptionsFunc) Duplex {
 	r := newRPC(name, opts...)
 	r.mode = ModeDuplex
@@ -191,7 +194,7 @@ func SetTransport(transport Transport) OptionsFunc {
 	}
 }
 
-// Sets optional options for method handler to limit throughput
+// Sets an option for the method handler to limit throughput
 // Limitation passes to underlying transport and has to be implemented by transport
 func SetHandlerThroughput(throughput uint) HandlerOptionsFunc {
 	return func(h *handler) {
@@ -238,24 +241,22 @@ func (rpc *rpc) Shutdown() {
 func (rpc *rpc) Call(ctx context.Context, method string, payload []byte, wait bool) ([]byte, error) {
 	rpc.debug("Calling method %s", method)
 	var response <-chan transport.Call
-	p := request{
+	r := request{
 		id:      uuid.New().String(),
 		payload: payload,
 		method:  method,
 		source:  rpc.instanceId,
 	}
 
-	if wait {
-		defer rpc.removeListener(p.id)
-		response = rpc.addListener(p.id)
-	}
-
-	err := rpc.t.Send(p)
+	err := rpc.t.Send(r)
 
 	// return either errorf or just nil if response doesn't required
 	if err != nil || !wait {
 		return nil, err
 	}
+
+	defer rpc.removeListener(r.id)
+	response = rpc.addListener(r.id)
 
 	var responseData []byte
 	select {
@@ -270,7 +271,7 @@ func (rpc *rpc) Call(ctx context.Context, method string, payload []byte, wait bo
 	return responseData, err
 }
 
-//Method to register handler for the method
+//Registers a handler for the method
 func (rpc *rpc) RegisterHandler(method string, f HandlerFunc, options ...HandlerOptionsFunc) {
 	rpc.debug("Register handler for method %rpc", method)
 	h := &handler{
